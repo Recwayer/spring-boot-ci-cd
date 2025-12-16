@@ -23,7 +23,7 @@ springBoot {
 }
 
 bootJar {
-    archiveFileName = 'calculator-api.jar'
+    archiveFileName = 'app.jar'
 }
 
 test {

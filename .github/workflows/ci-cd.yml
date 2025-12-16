@@ -2,17 +2,15 @@ name: Java CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [ master ]
 
 jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        java: [17]
+        os: [ ubuntu-latest, windows-latest, macos-15, macos-15-intel ]
+        java: [ 17 ]
 
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +41,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Build JAR
         run: ./gradlew bootJar
 
@@ -51,3 +52,34 @@ jobs:
         with:
           name: app-jar
           path: build/libs/*.jar
+
+
+  deploy:
+    runs-on: self-hosted
+    needs: build
+
+    steps:
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+
+      - name: Deploy application
+        run: |
+          taskkill /F /IM java.exe 2>nul || echo "No Java processes"
+          timeout /t 2 /nobreak >nul
+          
+          echo Starting Spring Boot application...
+          start "CalculatorAPI" /B java -jar app.jar
+          
+          echo Waiting for application to start...
+          timeout /t 10 /nobreak >nul
+          
+          echo Testing health endpoint...
+          curl -f http://localhost:8080/api/v1/calculator/health && (
+            echo App is running!
+          ) || (
+            echo Health check failed
+            exit 1
+          )
+        shell: cmd
